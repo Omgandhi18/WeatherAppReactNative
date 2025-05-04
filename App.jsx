@@ -6,14 +6,16 @@
  */
 
 // App.js
+import 'react-native-gesture-handler';
 import React, { useState, useEffect } from 'react';
-import { StatusBar } from 'react-native';
+import { StatusBar, ActivityIndicator, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
 
 // Screens
 import HomeScreen from './screens/HomeScreen';
@@ -25,19 +27,28 @@ const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
 
 // API key - replace with your own key
-const API_KEY = 'YOUR_OPENWEATHERMAP_API_KEY';
+const API_KEY = '6e1f074f2a92b848ef7c41353d792d76';
 
 // Weather API service
 export const fetchWeatherData = async (latitude, longitude) => {
   try {
     const response = await fetch(
-      `https://api.openweathermap.org/data/3.0/onecall?lat=${latitude}&lon=${longitude}&exclude=&appid=${API_KEY}&units=metric`
+      `https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&appid=${API_KEY}&units=metric`
     );
+    
+    if (!response.ok) {
+      throw new Error(`Weather API Error: ${response.status}`);
+    }
+    
     const data = await response.json();
+    if (!data || !data.main) {
+      throw new Error('Invalid weather data format');
+    }
+    
     return data;
   } catch (error) {
     console.error('Error fetching weather data:', error);
-    return null;
+    throw error; // Let the caller handle the error
   }
 };
 
@@ -148,26 +159,34 @@ export default function App() {
   return (
     <NavigationContainer>
       <StatusBar barStyle="dark-content" />
-      <Stack.Navigator>
-        <Stack.Screen 
-          name="Main" 
-          options={{ headerShown: false }}
-        >
-          {props => (
-            <TabNavigator 
-              {...props} 
-              weatherData={weatherData} 
-              refreshWeather={getLocationAndWeather}
-              location={location}
-            />
-          )}
-        </Stack.Screen>
-        <Stack.Screen 
-          name="WeatherDetail" 
-          component={WeatherDetailScreen}
-          options={({ route }) => ({ title: route.params.title })}
-        />
-      </Stack.Navigator>
+      {loading ? (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color="#0080ff" />
+        </View>
+      ) : (
+        <Stack.Navigator>
+          <Stack.Screen 
+            name="Main" 
+            options={{ headerShown: false }}
+          >
+            {props => (
+              <TabNavigator 
+                {...props} 
+                weatherData={weatherData} 
+                refreshWeather={getLocationAndWeather}
+                location={location}
+                loading={loading}
+                error={error}
+              />
+            )}
+          </Stack.Screen>
+          <Stack.Screen 
+            name="WeatherDetail" 
+            component={WeatherDetailScreen}
+            options={({ route }) => ({ title: route.params.title })}
+          />
+        </Stack.Navigator>
+      )}
     </NavigationContainer>
   );
 }

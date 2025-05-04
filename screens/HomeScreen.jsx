@@ -13,23 +13,30 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const HomeScreen = ({ navigation, weatherData, refreshWeather, location }) => {
+const HomeScreen = ({ navigation, weatherData, refreshWeather, location, loading, error }) => {
   const [refreshing, setRefreshing] = React.useState(false);
   const insets = useSafeAreaInsets();
 
-  if (!weatherData) {
+  if (error) {
     return (
-      <View style={[styles.container, styles.centered]}>
-        <ActivityIndicator size="large" color="#0080ff" />
-        <Text style={styles.loadingText}>Loading weather data...</Text>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <Text>{error}</Text>
       </View>
     );
   }
 
-  const { current, hourly } = weatherData;
-  const currentTemp = Math.round(current.temp);
-  const feelsLike = Math.round(current.feels_like);
-  const weather = current.weather[0];
+  if (!weatherData || !weatherData.main) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#0080ff" />
+      </View>
+    );
+  }
+
+  const { main, weather, wind, visibility, sys, dt } = weatherData;
+  const currentTemp = Math.round(main.temp);
+  const feelsLike = Math.round(main.feels_like);
+  const currentWeather = weather[0];
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -54,8 +61,8 @@ const HomeScreen = ({ navigation, weatherData, refreshWeather, location }) => {
   };
 
   const getWeatherBackground = () => {
-    const id = weather.id;
-    const isDay = current.dt > current.sunrise && current.dt < current.sunset;
+    const id = currentWeather.id;
+    const isDay = dt > sys.sunrise && dt < sys.sunset;
     
     if (id >= 200 && id < 300) return '#616161'; // Thunderstorm
     if (id >= 300 && id < 400) return '#757575'; // Drizzle
@@ -81,14 +88,14 @@ const HomeScreen = ({ navigation, weatherData, refreshWeather, location }) => {
         <View style={styles.locationContainer}>
           <Ionicons name="location" size={24} color="white" />
           <Text style={styles.locationText}>
-            {location?.name || 'Loading location...'}
+            {weatherData.name || 'Loading location...'}
           </Text>
         </View>
 
         {/* Current weather */}
         <View style={styles.currentWeather}>
           <Image
-            source={{ uri: getWeatherIcon(weather.icon) }}
+            source={{ uri: getWeatherIcon(currentWeather.icon) }}
             style={styles.weatherIcon}
           />
           <View style={styles.tempContainer}>
@@ -98,7 +105,7 @@ const HomeScreen = ({ navigation, weatherData, refreshWeather, location }) => {
         </View>
 
         <Text style={styles.weatherDescription}>
-          {weather.description.charAt(0).toUpperCase() + weather.description.slice(1)}
+          {currentWeather.description.charAt(0).toUpperCase() + currentWeather.description.slice(1)}
         </Text>
 
         {/* Weather details */}
@@ -106,17 +113,17 @@ const HomeScreen = ({ navigation, weatherData, refreshWeather, location }) => {
           <View style={styles.detailsRow}>
             <View style={styles.detailItem}>
               <Ionicons name="water-outline" size={22} color="#0080ff" />
-              <Text style={styles.detailValue}>{current.humidity}%</Text>
+              <Text style={styles.detailValue}>{main.humidity}%</Text>
               <Text style={styles.detailLabel}>Humidity</Text>
             </View>
             <View style={styles.detailItem}>
               <Ionicons name="speedometer-outline" size={22} color="#0080ff" />
-              <Text style={styles.detailValue}>{current.pressure} hPa</Text>
+              <Text style={styles.detailValue}>{main.pressure} hPa</Text>
               <Text style={styles.detailLabel}>Pressure</Text>
             </View>
             <View style={styles.detailItem}>
               <Ionicons name="eye-outline" size={22} color="#0080ff" />
-              <Text style={styles.detailValue}>{(current.visibility / 1000).toFixed(1)} km</Text>
+              <Text style={styles.detailValue}>{(visibility / 1000).toFixed(1)} km</Text>
               <Text style={styles.detailLabel}>Visibility</Text>
             </View>
           </View>
@@ -124,71 +131,24 @@ const HomeScreen = ({ navigation, weatherData, refreshWeather, location }) => {
             <View style={styles.detailItem}>
               <Ionicons name="sunny-outline" size={22} color="#0080ff" />
               <Text style={styles.detailValue}>
-                {formatTime(current.sunrise)}
+                {formatTime(sys.sunrise)}
               </Text>
               <Text style={styles.detailLabel}>Sunrise</Text>
             </View>
             <View style={styles.detailItem}>
               <Ionicons name="moon-outline" size={22} color="#0080ff" />
               <Text style={styles.detailValue}>
-                {formatTime(current.sunset)}
+                {formatTime(sys.sunset)}
               </Text>
               <Text style={styles.detailLabel}>Sunset</Text>
             </View>
             <View style={styles.detailItem}>
               <Ionicons name="thermometer-outline" size={22} color="#0080ff" />
-              <Text style={styles.detailValue}>{current.uvi.toFixed(1)}</Text>
-              <Text style={styles.detailLabel}>UV Index</Text>
+              <Text style={styles.detailValue}>{wind.speed.toFixed(1)} m/s</Text>
+              <Text style={styles.detailLabel}>Wind</Text>
             </View>
           </View>
         </View>
-
-        {/* Hourly forecast */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Next 24 Hours</Text>
-          <TouchableOpacity 
-            onPress={() => navigation.navigate('Forecast')}
-            style={styles.seeMore}
-          >
-            <Text style={styles.seeMoreText}>See More</Text>
-            <Ionicons name="chevron-forward" size={16} color="#0080ff" />
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView 
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.hourlyContainer}
-        >
-          {hourly.slice(0, 24).map((hour, index) => (
-            <TouchableOpacity
-              key={hour.dt}
-              style={styles.hourlyItem}
-              onPress={() => navigation.navigate('WeatherDetail', {
-                data: hour,
-                type: 'hourly',
-                title: `${formatTime(hour.dt)} Weather`
-              })}
-            >
-              <Text style={styles.hourlyTime}>
-                {index === 0 ? 'Now' : formatTime(hour.dt)}
-              </Text>
-              <Image 
-                source={{ uri: getWeatherIcon(hour.weather[0].icon) }}
-                style={styles.hourlyIcon}
-              />
-              <Text style={styles.hourlyTemp}>{Math.round(hour.temp)}°C</Text>
-              <View style={styles.precipContainer}>
-                <Ionicons 
-                  name="water-outline" 
-                  size={12} 
-                  color={hour.pop > 0 ? "#4dabf5" : "#8c8c8c"} 
-                />
-                <Text style={styles.hourlyPrecip}>{Math.round(hour.pop * 100)}%</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
       </ScrollView>
     </View>
   );
@@ -299,41 +259,10 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: '500',
   },
-  hourlyContainer: {
-    paddingLeft: 15,
-  },
-  hourlyItem: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 12,
-    padding: 10,
-    marginRight: 10,
-    alignItems: 'center',
-    width: 70,
-  },
-  hourlyTime: {
-    fontSize: 12,
-    color: 'white',
-    marginBottom: 5,
-  },
-  hourlyIcon: {
-    width: 40,
-    height: 40,
-  },
-  hourlyTemp: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: 'white',
-    marginTop: 5,
-  },
   precipContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: 5,
-  },
-  hourlyPrecip: {
-    fontSize: 12,
-    color: 'white',
-    marginLeft: 2,
   },
 });
 
