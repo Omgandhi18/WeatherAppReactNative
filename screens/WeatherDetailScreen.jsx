@@ -9,7 +9,7 @@ import {
   Dimensions
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LineChart } from 'recharts';
+
 
 const WeatherDetailScreen = ({ route }) => {
   const { data, type } = route.params;
